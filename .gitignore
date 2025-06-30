@@ -172,3 +172,11 @@ app_copy.py
 # don't look at secrets in deployment
 app.yaml
 .vscode/
+*.csv
+/excel
+conf.py
+
+# Just in case we bring back sdtp for trials...
+sdtp/
+# place where keys are kept locally
+.keys/

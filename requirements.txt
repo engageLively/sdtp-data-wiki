@@ -7,4 +7,5 @@ Werkzeug
 Authlib
 google-cloud-storage
 google-cloud-core
-sdtp
+google-cloud-datastore
+sdtp>=0.2.5

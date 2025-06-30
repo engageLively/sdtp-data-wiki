@@ -88,14 +88,15 @@
       <ul>
         
         <li><a href="/view_tables">View Tables</a></li>
-        <li ><a href="/upload">Upload A Table</a></li>
         <li ><a href="/">Help</a></li>
-        <li style="color: #fdb515;">
-          {% if email is defined %}
-             {{ email }}
-          {% else %}
-            <a href="/login">Login</a></li>
-          {% endif %}
+        {% if email is defined %}
+          <li ><a href="/upload">Upload A Table</a></li>
+          <li style="color: #fdb515;"> {{ email }} </li>
+          <li style="color: #fdb515;"> <a href="/logout">Logout</a></li>
+  
+        {% else %}
+          <li><a href="/login">Login</a></li>
+        {% endif %}
        
       </ul>
     </nav>

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Table {{ table }}{% endblock %}
+{% block head %}
+    {{ super() }}
+    <style type="text/css">
+        .important { color: #336699; }
+    </style>
+{% endblock %}
+{% block content %}
+  <h1>Display Table {{table}}</h1>
+  Columns: {{ columns }} <br>
+  <form action="/display_input">
+    <label for="filter">Filter:</label><br>
+    <input type="text" id="filter" name="filter" value=""><br>
+    <input type="hidden" id="table" name="table" value="{{table}}"><br><br>
+    <input type="submit" value="Submit">
+  </form>
+{% endblock %}

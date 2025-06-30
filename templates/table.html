@@ -40,7 +40,7 @@
       <ul>
         {% for entry in sample_tables %}
           {% set query = entry["query"]|tojson %}
-          <li onclick = 'document.getElementById("filter").value = {{ query }};'> <u style="color: blue;">{{ entry['description'] }}</u></li>
+          <li onclick = 'document.getElementById("filter").value = JSON.stringify({{ query }});'> <u style="color: blue;">{{ entry['description'] }}</u></li>
         {% endfor %}
       </ul>
     {% endif %}

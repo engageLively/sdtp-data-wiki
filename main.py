@@ -3,7 +3,7 @@
 
 # BSD 3-Clause License
 
-# Copyright (c) 2023, engageLively
+# Copyright (c) 2024, UC Regents
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@ from authlib.integrations.flask_client import OAuth
 import jwt
 from uploader import make_SDMLTable_from_upload
 from json import loads, JSONDecodeError
+import requests
 
 
 from sdtp import sdtp_server_blueprint
@@ -93,9 +94,8 @@ app.register_blueprint(sdtp_server_blueprint)
 # from google.cloud import bigquery
 
 app.secret_key = os.environ["APP_SECRET"]
-# root = 'https://data-plane-428318.uw.r.appspot.com/'
-root = 'http://localhost:8080'
-import os
+root = os.environ['ROOT_URL']
+
 
 # Configure OAuth
 oauth = OAuth(app)
@@ -116,11 +116,21 @@ def login():
     redirect_uri = url_for('authorize', _external=True)
     return google.authorize_redirect(redirect_uri)
 
+@app.route('/logout')
+def logout():
+    # if 'google_access_token' in session:
+    #     requests.post('https://oauth2.googleapis.com/revoke',
+    #     params={'token': session['google_access_token']},
+    #     headers = {'content-type': 'application/x-www-form-urlencoded'})
+    session.clear()
+    return redirect(root)
+
 @app.route('/oauth2callback')
 def authorize():
     try:
         # Exchange the authorization code for an access token
         token = google.authorize_access_token()
+        session['google_access_token'] = token['access_token']
         
         id_token = token.get('id_token')
         user_info = jwt.decode(id_token, options={"verify_signature": False})
@@ -140,7 +150,14 @@ def cwd():
 from build_filter import create_filter    
 from sdtp import check_valid_spec_return_boolean, InvalidDataException
 
-from table_sample_queries import table_sample_queries
+                           
+BUCKET_NAME = os.environ['BUCKET_NAME']
+
+from gcs_interface import SDMLStorageBucket
+
+bucket = SDMLStorageBucket(BUCKET_NAME)
+
+table_sample_queries = bucket.get_sdql_samples()
 
 def _render_table(table_name, table, rows, filter_spec = None):
     context = {
@@ -190,12 +207,7 @@ def view_table():
     rows = table.get_filtered_rows()
     return _render_table(table_name, table, rows)
     
-                           
-BUCKET_NAME = os.environ['BUCKET_NAME']
 
-from gcs_interface import SDMLStorageBucket
-
-bucket = SDMLStorageBucket(BUCKET_NAME)
 
 def _check_email():
     # A  utility to ensure that only registered users 
@@ -232,10 +244,18 @@ def upload_file():
             return redirect(request.url)
         try:
             table_dictionary["name"] = f"{session['user']}/{table_dictionary['name']}"
-            sdtp_server_blueprint.table_server.add_sdtp_table_from_dictionary(table_dictionary["name"], table_dictionary["table"])
+            gcs_table_spec = {
+                "schema":  table_dictionary['table']["schema"],
+                "type": "GCSTable",
+                "bucket": BUCKET_NAME,
+                "blob": f"rowtables/{table_dictionary['name']}.sdml",
+            }
+            # sdtp_server_blueprint.table_server.add_sdtp_table_from_dictionary(table_dictionary["name"], table_dictionary["table"])
+            sdtp_server_blueprint.table_server.add_sdtp_table_from_dictionary(table_dictionary["name"], gcs_table_spec)
         except InvalidDataException as e:
             return upload_error(f'Error {e} in creating the table for  {file.filename}')
-        bucket.upload_table(table_dictionary)
+        bucket.upload_table('rowtables', table_dictionary)
+        bucket.upload_table('gcstables', {"name": table_dictionary['name'], "table": gcs_table_spec})
         return redirect(f"/view_table?table={table_dictionary['name']}")
         
     context = {}
@@ -278,12 +298,16 @@ def show_routes():
 
     return extended_render('routes.html', {"pages": pages, "keys": keys})
 
-
-table_names = bucket.get_all_table_names()
+prefix = os.environ.get('TABLE_PREFIX', None)
+table_names = bucket.get_all_table_names(prefix)
 for table_name in table_names:
-    table_dict = bucket.get_table_as_dictionary(table_name)
-    key_name = table_name[:-5]
-    sdtp_server_blueprint.table_server.add_sdtp_table_from_dictionary(key_name, table_dict)
+    try:
+        table_dict = bucket.get_table_as_dictionary(table_name)
+        first_index = len(prefix) if prefix is not None else 0
+        key_name = table_name[first_index:-5]
+        sdtp_server_blueprint.table_server.add_sdtp_table_from_dictionary(key_name, table_dict)
+    except InvalidDataException as e:
+        pass # need to put logging in
 
 
 if __name__ == '__main__':
